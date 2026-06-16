@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import sys
-from typing import Optional
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -11,34 +10,38 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from bot.config import settings
 from bot.handlers import get_router
 from bot.scheduler import setup_scheduler
-from database.models import init_db
+from database.models import init_db, get_engine, Base
 
-# ── Logging setup ────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-    ],
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
-# Silence noisy libraries
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("apscheduler").setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
+bot = Bot(
+    token=settings.bot_token,
+    default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
+)
 
-async def on_startup(bot: Bot) -> None:
+
+async def on_startup() -> None:
     logger.info("Bot starting up...")
-    await init_db()
-    logger.info("Database initialized")
+
+    # Явно создаём все таблицы
+    engine = get_engine()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Database tables created/verified")
 
     me = await bot.get_me()
     logger.info("Logged in as @%s (id=%s)", me.username, me.id)
 
-    # Notify chat that bot started
     try:
         await bot.send_message(
             chat_id=settings.chat_id,
@@ -55,33 +58,21 @@ async def on_startup(bot: Bot) -> None:
         logger.warning("Could not send startup message: %s", e)
 
 
-async def on_shutdown(bot: Bot) -> None:
+async def on_shutdown() -> None:
     logger.info("Bot shutting down...")
     try:
-        await bot.send_message(
-            chat_id=settings.chat_id,
-            text="🔴 CRM Bot остановлен.",
-        )
+        await bot.send_message(chat_id=settings.chat_id, text="🔴 CRM Bot остановлен.")
     except Exception:
         pass
 
 
 async def main() -> None:
-    bot = Bot(
-        token=settings.bot_token,
-        default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
-    )
-
     dp = Dispatcher(storage=MemoryStorage())
-
-    # Register all routers
     dp.include_router(get_router())
 
-    # Startup/shutdown hooks
-    dp.startup.register(lambda: on_startup(bot))
-    dp.shutdown.register(lambda: on_shutdown(bot))
+    dp.startup.register(on_startup)
+    dp.shutdown.register(on_shutdown)
 
-    # Setup and start scheduler
     scheduler = setup_scheduler(bot)
     scheduler.start()
     logger.info("Scheduler started")

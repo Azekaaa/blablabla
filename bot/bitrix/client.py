@@ -93,6 +93,8 @@ class BitrixClient:
                 "start": start,
             })
 
+            logger.info("crm.deal.list response type=%s, value=%s", type(result).__name__, str(result)[:200])
+
             if not result:
                 break
 

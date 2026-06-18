@@ -168,7 +168,6 @@ class BitrixClient:
         result: dict[str, str] = {}
         unique_ids = list(user_ids)
 
-        # Bitrix allows filtering by multiple IDs
         for i in range(0, len(unique_ids), 50):
             batch = unique_ids[i:i + 50]
             try:
@@ -179,7 +178,10 @@ class BitrixClient:
                         name = f"{u.get('NAME', '')} {u.get('LAST_NAME', '')}".strip()
                         result[uid] = name or f"User#{uid}"
             except Exception as e:
-                logger.warning("Batch user fetch failed: %s", e)
+                logger.warning("Batch user fetch failed (continuing without names): %s", e)
+                # Fill with ID-based names so sync continues
+                for uid in batch:
+                    result[str(uid)] = f"Менеджер #{uid}"
 
         return result
 

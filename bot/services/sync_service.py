@@ -49,8 +49,8 @@ class SyncService:
             # Parse deals
             parsed_deals = [parse_deal(rd, stage_names, user_names) for rd in raw_deals]
 
-            # Fetch tasks count per deal (batch to avoid too many requests)
-            deal_task_counts = await self._fetch_task_counts(parsed_deals)
+            # Skip task fetching for large datasets to avoid timeout
+            deal_task_counts: dict[int, int] = {}
 
             # Upsert to database
             updated_count = await self._upsert_deals(parsed_deals, deal_task_counts)

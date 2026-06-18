@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
@@ -52,22 +52,22 @@ async def send_chunks(message: Message, text: str, kb=None) -> None:
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
     await message.answer(
-        "👋 CRM Bitrix24 Bot\n\n"
-        "Я анализирую ваш CRM и отправляю отчёты дважды в день.\n\n"
-        "Команды:\n"
-        "/report — полный отчёт\n"
-        "/stats — статистика\n"
-        "/managers — рейтинг менеджеров\n"
-        "/problems — проблемные сделки\n\n"
-        "Выберите действие в меню ниже 👇",
+        "рџ‘‹ CRM Bitrix24 Bot\n\n"
+        "РЇ Р°РЅР°Р»РёР·РёСЂСѓСЋ РІР°С€ CRM Рё РѕС‚РїСЂР°РІР»СЏСЋ РѕС‚С‡С‘С‚С‹ РґРІР°Р¶РґС‹ РІ РґРµРЅСЊ.\n\n"
+        "РљРѕРјР°РЅРґС‹:\n"
+        "/report вЂ” РїРѕР»РЅС‹Р№ РѕС‚С‡С‘С‚\n"
+        "/stats вЂ” СЃС‚Р°С‚РёСЃС‚РёРєР°\n"
+        "/managers вЂ” СЂРµР№С‚РёРЅРі РјРµРЅРµРґР¶РµСЂРѕРІ\n"
+        "/problems вЂ” РїСЂРѕР±Р»РµРјРЅС‹Рµ СЃРґРµР»РєРё\n\n"
+        "Р’С‹Р±РµСЂРёС‚Рµ РґРµР№СЃС‚РІРёРµ РІ РјРµРЅСЋ РЅРёР¶Рµ рџ‘‡",
         reply_markup=main_keyboard(),
     )
 
 
 @router.message(Command("report"))
-@router.message(lambda m: m.text == "📊 Отчёт")
+@router.message(lambda m: m.text == "рџ“Љ РћС‚С‡С‘С‚")
 async def cmd_report(message: Message) -> None:
-    status_msg = await message.answer("⏳ Генерирую отчёт...")
+    status_msg = await message.answer("вЏі Р“РµРЅРµСЂРёСЂСѓСЋ РѕС‚С‡С‘С‚...")
     try:
         analytics = await analytics_service.get_analytics()
         report_text = build_full_report(analytics)
@@ -76,15 +76,15 @@ async def cmd_report(message: Message) -> None:
     except Exception as e:
         logger.error("Error generating report: %s", e, exc_info=True)
         try:
-            await status_msg.edit_text(f"❌ Ошибка: {e}")
+            await status_msg.edit_text(f"вќЊ РћС€РёР±РєР°: {e}")
         except Exception:
-            await message.answer(f"❌ Ошибка: {e}")
+            await message.answer(f"вќЊ РћС€РёР±РєР°: {e}")
 
 
 @router.message(Command("stats"))
-@router.message(lambda m: m.text == "📈 Статистика")
+@router.message(lambda m: m.text == "рџ“€ РЎС‚Р°С‚РёСЃС‚РёРєР°")
 async def cmd_stats(message: Message) -> None:
-    status_msg = await message.answer("⏳ Загружаю статистику...")
+    status_msg = await message.answer("вЏі Р—Р°РіСЂСѓР¶Р°СЋ СЃС‚Р°С‚РёСЃС‚РёРєСѓ...")
     try:
         analytics = await analytics_service.get_analytics()
         text = build_stats_report(analytics)
@@ -93,15 +93,15 @@ async def cmd_stats(message: Message) -> None:
     except Exception as e:
         logger.error("Error generating stats: %s", e, exc_info=True)
         try:
-            await status_msg.edit_text(f"❌ Ошибка: {e}")
+            await status_msg.edit_text(f"вќЊ РћС€РёР±РєР°: {e}")
         except Exception:
-            await message.answer(f"❌ Ошибка: {e}")
+            await message.answer(f"вќЊ РћС€РёР±РєР°: {e}")
 
 
 @router.message(Command("managers"))
-@router.message(lambda m: m.text == "🏆 Менеджеры")
+@router.message(lambda m: m.text == "рџЏ† РњРµРЅРµРґР¶РµСЂС‹")
 async def cmd_managers(message: Message) -> None:
-    status_msg = await message.answer("⏳ Загружаю рейтинг менеджеров...")
+    status_msg = await message.answer("вЏі Р—Р°РіСЂСѓР¶Р°СЋ СЂРµР№С‚РёРЅРі РјРµРЅРµРґР¶РµСЂРѕРІ...")
     try:
         analytics = await analytics_service.get_analytics()
         text = build_managers_report(analytics)
@@ -110,15 +110,15 @@ async def cmd_managers(message: Message) -> None:
     except Exception as e:
         logger.error("Error generating managers report: %s", e, exc_info=True)
         try:
-            await status_msg.edit_text(f"❌ Ошибка: {e}")
+            await status_msg.edit_text(f"вќЊ РћС€РёР±РєР°: {e}")
         except Exception:
-            await message.answer(f"❌ Ошибка: {e}")
+            await message.answer(f"вќЊ РћС€РёР±РєР°: {e}")
 
 
 @router.message(Command("problems"))
-@router.message(lambda m: m.text == "⚠️ Проблемы")
+@router.message(lambda m: m.text == "вљ пёЏ РџСЂРѕР±Р»РµРјС‹")
 async def cmd_problems(message: Message) -> None:
-    status_msg = await message.answer("⏳ Анализирую проблемные сделки...")
+    status_msg = await message.answer("вЏі РђРЅР°Р»РёР·РёСЂСѓСЋ РїСЂРѕР±Р»РµРјРЅС‹Рµ СЃРґРµР»РєРё...")
     try:
         analytics = await analytics_service.get_analytics()
         text = build_problems_report(analytics)
@@ -127,6 +127,6 @@ async def cmd_problems(message: Message) -> None:
     except Exception as e:
         logger.error("Error generating problems report: %s", e, exc_info=True)
         try:
-            await status_msg.edit_text(f"❌ Ошибка: {e}")
+            await status_msg.edit_text(f"вќЊ РћС€РёР±РєР°: {e}")
         except Exception:
-            await message.answer(f"❌ Ошибка: {e}")
+            await message.answer(f"вќЊ РћС€РёР±РєР°: {e}")

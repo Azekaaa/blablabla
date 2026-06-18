@@ -246,6 +246,6 @@ def parse_deal(raw: dict[str, Any], stage_names: dict[str, str], user_names: dic
         "date_create": _parse_dt(raw.get("DATE_CREATE")),
         "date_modify": _parse_dt(raw.get("DATE_MODIFY")),
         "date_closed": _parse_dt(raw.get("CLOSEDATE")),
-        "is_won": stage_id == "WON",
-        "is_lost": stage_id in ("LOSE", "APOLOGY"),
+        "is_won": stage_id.endswith(":WON") or stage_id == "WON",
+        "is_lost": stage_id.endswith(":LOSE") or stage_id.endswith(":APOLOGY") or stage_id in ("LOSE", "APOLOGY"),
     }

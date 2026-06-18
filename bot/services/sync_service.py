@@ -116,8 +116,12 @@ class SyncService:
             return 0
 
         session_factory = get_session_factory()
+        now = datetime.now(timezone.utc)
+        batch_size = 100
+        total_saved = 0
+
+        # Get existing deals map
         async with session_factory() as session:
-            # Get existing deals to track stage change dates
             existing_ids = {d["id"] for d in deals}
             existing_deals_result = await session.execute(
                 select(Deal.id, Deal.stage, Deal.stage_entered_date).where(
@@ -129,48 +133,47 @@ class SyncService:
                 for row in existing_deals_result
             }
 
-            now = datetime.now(timezone.utc)
+        # Save in batches
+        for i in range(0, len(deals), batch_size):
+            batch = deals[i:i + batch_size]
+            async with session_factory() as session:
+                for deal_data in batch:
+                    deal_id = deal_data["id"]
+                    existing = existing_map.get(deal_id)
 
-            for deal_data in deals:
-                deal_id = deal_data["id"]
-                existing = existing_map.get(deal_id)
+                    if existing is None:
+                        stage_entered_date = deal_data.get("date_create") or now
+                    elif existing["stage"] != deal_data["stage"]:
+                        stage_entered_date = now
+                    else:
+                        stage_entered_date = existing["stage_entered_date"] or now
 
-                # Determine stage_entered_date
-                if existing is None:
-                    # New deal
-                    stage_entered_date = deal_data.get("date_create") or now
-                elif existing["stage"] != deal_data["stage"]:
-                    # Stage changed
-                    stage_entered_date = now
-                else:
-                    # Same stage, keep existing date
-                    stage_entered_date = existing["stage_entered_date"] or now
+                    task_count = task_counts.get(deal_id, 0)
 
-                task_count = task_counts.get(deal_id, 0)
+                    deal_obj = await session.get(Deal, deal_id)
+                    if deal_obj is None:
+                        deal_obj = Deal(id=deal_id)
+                        session.add(deal_obj)
 
-                deal_obj = await session.get(Deal, deal_id)
-                if deal_obj is None:
-                    deal_obj = Deal(id=deal_id)
-                    session.add(deal_obj)
+                    deal_obj.title = deal_data["title"]
+                    deal_obj.stage = deal_data["stage"]
+                    deal_obj.stage_name = deal_data["stage_name"]
+                    deal_obj.opportunity = deal_data["opportunity"]
+                    deal_obj.currency = deal_data["currency"]
+                    deal_obj.responsible_id = deal_data["responsible_id"]
+                    deal_obj.responsible_name = deal_data["responsible_name"]
+                    deal_obj.date_create = deal_data["date_create"]
+                    deal_obj.date_modify = deal_data["date_modify"]
+                    deal_obj.date_closed = deal_data["date_closed"]
+                    deal_obj.is_won = deal_data["is_won"]
+                    deal_obj.is_lost = deal_data["is_lost"]
+                    deal_obj.has_tasks = task_count > 0
+                    deal_obj.task_count = task_count
+                    deal_obj.stage_entered_date = stage_entered_date
+                    deal_obj.synced_at = now
 
-                deal_obj.title = deal_data["title"]
-                deal_obj.stage = deal_data["stage"]
-                deal_obj.stage_name = deal_data["stage_name"]
-                deal_obj.opportunity = deal_data["opportunity"]
-                deal_obj.currency = deal_data["currency"]
-                deal_obj.responsible_id = deal_data["responsible_id"]
-                deal_obj.responsible_name = deal_data["responsible_name"]
-                deal_obj.date_create = deal_data["date_create"]
-                deal_obj.date_modify = deal_data["date_modify"]
-                deal_obj.date_closed = deal_data["date_closed"]
-                deal_obj.is_won = deal_data["is_won"]
-                deal_obj.is_lost = deal_data["is_lost"]
-                deal_obj.has_tasks = task_count > 0
-                deal_obj.task_count = task_count
-                deal_obj.stage_entered_date = stage_entered_date
-                deal_obj.synced_at = now
+                await session.commit()
+                total_saved += len(batch)
+                logger.info("Saved batch %d/%d (%d deals)", i // batch_size + 1, (len(deals) - 1) // batch_size + 1, total_saved)
 
-            await session.commit()
-            logger.info("Successfully committed %d deals to database", len(deals))
-
-        return len(deals)
+        return total_saved

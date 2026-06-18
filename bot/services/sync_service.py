@@ -171,5 +171,6 @@ class SyncService:
                 deal_obj.synced_at = now
 
             await session.commit()
+            logger.info("Successfully committed %d deals to database", len(deals))
 
         return len(deals)

@@ -18,6 +18,25 @@ analytics_service = AnalyticsService()
 sync_service = SyncService()
 
 
+def split_message(text: str, limit: int = 4000) -> list[str]:
+    """Split long message into chunks by newline boundaries."""
+    if len(text) <= limit:
+        return [text]
+    
+    chunks = []
+    current = ""
+    for line in text.split("\n"):
+        if len(current) + len(line) + 1 > limit:
+            if current:
+                chunks.append(current.strip())
+            current = line
+        else:
+            current += "\n" + line if current else line
+    if current:
+        chunks.append(current.strip())
+    return chunks
+
+
 @router.message(CommandStart())
 async def cmd_start(message: Message) -> None:
     await message.answer(
@@ -41,20 +60,12 @@ async def cmd_report(message: Message) -> None:
     try:
         analytics = await analytics_service.get_analytics()
         report_text = build_full_report(analytics)
+        chunks = split_message(report_text)
 
         await status_msg.delete()
-        # Telegram max message length is 4096, split if needed
-        if len(report_text) > 4000:
-            chunks = [report_text[i:i + 4000] for i in range(0, len(report_text), 4000)]
-            for i, chunk in enumerate(chunks):
-                kb = report_inline_keyboard() if i == len(chunks) - 1 else None
-                await message.answer(chunk, parse_mode="Markdown", reply_markup=kb)
-        else:
-            await message.answer(
-                report_text,
-                parse_mode="Markdown",
-                reply_markup=report_inline_keyboard(),
-            )
+        for i, chunk in enumerate(chunks):
+            kb = report_inline_keyboard() if i == len(chunks) - 1 else None
+            await message.answer(chunk, parse_mode="Markdown", reply_markup=kb)
     except Exception as e:
         logger.error("Error generating report: %s", e, exc_info=True)
         await status_msg.edit_text(f"❌ Ошибка при генерации отчёта: {e}")
@@ -67,8 +78,11 @@ async def cmd_stats(message: Message) -> None:
     try:
         analytics = await analytics_service.get_analytics()
         text = build_stats_report(analytics)
+        chunks = split_message(text)
         await status_msg.delete()
-        await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
+        for i, chunk in enumerate(chunks):
+            kb = back_keyboard() if i == len(chunks) - 1 else None
+            await message.answer(chunk, parse_mode="Markdown", reply_markup=kb)
     except Exception as e:
         logger.error("Error generating stats: %s", e, exc_info=True)
         await status_msg.edit_text(f"❌ Ошибка: {e}")
@@ -81,8 +95,11 @@ async def cmd_managers(message: Message) -> None:
     try:
         analytics = await analytics_service.get_analytics()
         text = build_managers_report(analytics)
+        chunks = split_message(text)
         await status_msg.delete()
-        await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
+        for i, chunk in enumerate(chunks):
+            kb = back_keyboard() if i == len(chunks) - 1 else None
+            await message.answer(chunk, parse_mode="Markdown", reply_markup=kb)
     except Exception as e:
         logger.error("Error generating managers report: %s", e, exc_info=True)
         await status_msg.edit_text(f"❌ Ошибка: {e}")
@@ -95,8 +112,11 @@ async def cmd_problems(message: Message) -> None:
     try:
         analytics = await analytics_service.get_analytics()
         text = build_problems_report(analytics)
+        chunks = split_message(text)
         await status_msg.delete()
-        await message.answer(text, parse_mode="Markdown", reply_markup=back_keyboard())
+        for i, chunk in enumerate(chunks):
+            kb = back_keyboard() if i == len(chunks) - 1 else None
+            await message.answer(chunk, parse_mode="Markdown", reply_markup=kb)
     except Exception as e:
         logger.error("Error generating problems report: %s", e, exc_info=True)
         await status_msg.edit_text(f"❌ Ошибка: {e}")

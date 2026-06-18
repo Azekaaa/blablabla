@@ -183,37 +183,46 @@ class BitrixClient:
 
     async def get_stage_names(self) -> dict[str, str]:
         """Fetch custom stage names for deals pipeline."""
+        stage_map: dict[str, str] = dict(STAGE_NAMES)
+
+        # Method 1: crm.status.list — universal method for all Bitrix24
         try:
-            result = await self._call("crm.dealcategory.list", {})
-            categories = result or []
+            result = await self._call("crm.status.list", {
+                "filter": {"ENTITY_ID": "DEAL_STAGE"}
+            })
+            if result:
+                items = result if isinstance(result, list) else result.get("items", [])
+                for stage in items:
+                    sid = stage.get("STATUS_ID") or stage.get("ID", "")
+                    name = stage.get("NAME", sid)
+                    if sid:
+                        stage_map[sid] = name
+                logger.info("Loaded %d stage names via crm.status.list", len(stage_map))
+                return stage_map
+        except Exception as e:
+            logger.warning("crm.status.list failed: %s", e)
 
-            stage_map: dict[str, str] = dict(STAGE_NAMES)
-
-            # Default category stages
-            try:
-                default_stages = await self._call("crm.deal.stage.list", {})
-                if default_stages:
-                    for stage in default_stages:
-                        stage_map[stage["STATUS_ID"]] = stage.get("NAME", stage["STATUS_ID"])
-            except Exception:
-                pass
-
-            # Custom category stages
+        # Method 2: crm.dealcategory stages
+        try:
+            categories = await self._call("crm.dealcategory.list", {}) or []
             for cat in categories:
                 cat_id = cat.get("ID")
                 if cat_id:
                     try:
-                        cat_stages = await self._call("crm.dealcategory.stage.list", {"id": cat_id})
+                        cat_stages = await self._call(
+                            "crm.dealcategory.stage.list", {"id": cat_id}
+                        )
                         if cat_stages:
                             for stage in cat_stages:
-                                stage_map[stage["STATUS_ID"]] = stage.get("NAME", stage["STATUS_ID"])
+                                sid = stage.get("STATUS_ID", "")
+                                if sid:
+                                    stage_map[sid] = stage.get("NAME", sid)
                     except Exception:
                         pass
-
-            return stage_map
         except Exception as e:
-            logger.warning("Could not fetch stage names: %s", e)
-            return dict(STAGE_NAMES)
+            logger.warning("crm.dealcategory.list failed: %s", e)
+
+        return stage_map
 
 
 def parse_deal(raw: dict[str, Any], stage_names: dict[str, str], user_names: dict[str, str]) -> dict[str, Any]:

@@ -45,7 +45,6 @@ def build_full_report(analytics: CRMAnalytics) -> str:
     lines.append("")
     lines.append("📋 СДЕЛКИ В РАБОТЕ")
     lines.append(f"📌 Всего сделок: {analytics.total_active_deals}")
-    lines.append(f"💰 Общая сумма: {_fmt_money(analytics.total_active_amount, currency)}")
 
     lines.append("")
     lines.append("📅 СЕГОДНЯ")
@@ -77,15 +76,10 @@ def build_full_report(analytics: CRMAnalytics) -> str:
     else:
         lines.append("📋 Без задач: нет")
 
-    if analytics.stuck_stage_deals:
-        lines.append("")
-        lines.append(f"🔒 Застряли на этапе >{settings.stuck_stage_days_threshold}д ({len(analytics.stuck_stage_deals)}):")
-        for deal in analytics.stuck_stage_deals[:5]:
-            lines.append(_deal_line(deal, "stage"))
-        if len(analytics.stuck_stage_deals) > 5:
-            lines.append(f"  ...и ещё {len(analytics.stuck_stage_deals) - 5} сделок")
-    else:
-        lines.append(f"🔒 Застряли на этапе >{settings.stuck_stage_days_threshold}д: нет")
+    lines.append("")
+    lines.append("━━━━━━━━━━━━━━━━━━━━")
+    lines.append("📚 ЗАПИСИ НА ПРОБНОЕ ЗАНЯТИЕ")
+    lines.append(_format_trial_stats(analytics))
 
     lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━━")
@@ -98,6 +92,7 @@ def build_full_report(analytics: CRMAnalytics) -> str:
         problem_str = f" ⚠️{ms.problem_count}" if ms.problem_count > 0 else ""
         lines.append(f"{medal} {ms.name}")
         lines.append(f"   📁 {ms.deal_count} сд | 💰 {amount_str}{problem_str}")
+        lines.append(f"   🎯 Конверсия: {ms.conversion_rate:.0f}% ({ms.won_count}W/{ms.lost_count}L)")
 
     lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━━")
@@ -133,6 +128,7 @@ def build_managers_report(analytics: CRMAnalytics) -> str:
         lines.append(f"   📁 Сделок: {ms.deal_count}")
         lines.append(f"   💰 Сумма: {amount_str}")
         lines.append(f"   📊 Средняя: {avg_str}")
+        lines.append(f"   🎯 Конверсия: {ms.conversion_rate:.0f}% ({ms.won_count} побед / {ms.lost_count} проигр.)")
         lines.append(f"   🔍 Статус: {problem_badge}")
         lines.append("")
 
@@ -171,7 +167,6 @@ def build_stats_report(analytics: CRMAnalytics) -> str:
     lines = ["📈 СТАТИСТИКА CRM", ""]
 
     lines.append(f"📌 Сделок в работе: {analytics.total_active_deals}")
-    lines.append(f"💰 Общая сумма: {_fmt_money(analytics.total_active_amount, currency)}")
     lines.append("")
     lines.append("📅 Сегодня:")
     lines.append(f"  🆕 Новых: {analytics.new_deals_today}")
@@ -212,3 +207,17 @@ def _generate_conclusion(analytics: CRMAnalytics) -> str:
         conclusions.append(f"Лидер: {top.name} — {_fmt_money(top.total_amount, analytics.currency)} в работе.")
 
     return " ".join(conclusions) if conclusions else "Данных для анализа недостаточно."
+def _format_trial_stats(analytics: CRMAnalytics) -> str:
+    lines = []
+    all_managers = set(analytics.trial_lessons_day) | set(analytics.trial_lessons_week) | set(analytics.trial_lessons_month)
+
+    if not all_managers:
+        return "Нет записей на пробное занятие за текущий период."
+
+    for manager in sorted(all_managers):
+        day = analytics.trial_lessons_day.get(manager, 0)
+        week = analytics.trial_lessons_week.get(manager, 0)
+        month = analytics.trial_lessons_month.get(manager, 0)
+        lines.append(f"  {manager}: день {day} | неделя {week} | месяц {month}")
+
+    return "\n".join(lines)

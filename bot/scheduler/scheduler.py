@@ -82,7 +82,7 @@ async def _send_scheduled_report(bot: Bot) -> None:
 
 def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
     """Create and configure the APScheduler instance."""
-    scheduler = AsyncIOScheduler(timezone="UTC")
+    scheduler = AsyncIOScheduler(timezone="Asia/Almaty")
 
     # Morning report
     scheduler.add_job(
@@ -90,7 +90,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         trigger=CronTrigger(
             hour=settings.morning_hour,
             minute=settings.morning_minute,
-            timezone="UTC",
+            timezone="Asia/Almaty",
         ),
         args=[bot],
         id="morning_report",
@@ -105,7 +105,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
         trigger=CronTrigger(
             hour=settings.evening_hour,
             minute=settings.evening_minute,
-            timezone="UTC",
+            timezone="Asia/Almaty",
         ),
         args=[bot],
         id="evening_report",
@@ -115,7 +115,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
     )
 
     logger.info(
-        "Scheduler configured: morning=%s:%02d UTC, evening=%s:%02d UTC",
+        "Scheduler configured (Asia/Almaty): morning=%02d:%02d, evening=%02d:%02d",
         settings.morning_hour,
         settings.morning_minute,
         settings.evening_hour,

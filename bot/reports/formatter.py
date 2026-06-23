@@ -136,10 +136,10 @@ def build_managers_report(analytics: CRMAnalytics) -> str:
 
 
 def build_problems_report(analytics: CRMAnalytics) -> str:
-    lines = [f"⚠️ ПРОБЛЕМНЫЕ СДЕЛКИ", f"Всего: {analytics.total_problem_deals}", ""]
+    lines = ["⚠️ ПРОБЛЕМНЫЕ СДЕЛКИ", f"Всего: {analytics.total_problem_deals}", ""]
 
     if analytics.inactive_deals:
-        lines.append(f"🕐 Без активности >{settings.inactive_days_threshold} дней:")
+        lines.append(f"🕐 Без активности >1 дня с создания ({len(analytics.inactive_deals)}):")
         for d in analytics.inactive_deals:
             lines.append(_deal_line(d, "inactive"))
         lines.append("")
@@ -150,13 +150,7 @@ def build_problems_report(analytics: CRMAnalytics) -> str:
             lines.append(_deal_line(d, "none"))
         lines.append("")
 
-    if analytics.stuck_stage_deals:
-        lines.append(f"🔒 Застряли на этапе >{settings.stuck_stage_days_threshold} дней:")
-        for d in analytics.stuck_stage_deals:
-            lines.append(_deal_line(d, "stage"))
-        lines.append("")
-
-    if not any([analytics.inactive_deals, analytics.deals_without_tasks, analytics.stuck_stage_deals]):
+    if not any([analytics.inactive_deals, analytics.deals_without_tasks]):
         lines.append("✅ Проблемных сделок не обнаружено!")
 
     return "\n".join(lines)

@@ -206,7 +206,7 @@ class AnalyticsService:
         analytics.trial_lessons_month = await count_by_manager(month_start)
 
     async def _fill_manager_stats(self, session: AsyncSession, analytics: CRMAnalytics) -> None:
-        # Активные сделки (для общего списка менеджеров)
+        # Активные сделки
         result = await session.execute(
             select(
                 Deal.responsible_name,
@@ -228,7 +228,7 @@ class AnalyticsService:
             )
             manager_list.append(ms)
 
-        # Won/Lost по каждому менеджеру (для конверсии)
+        # Won/Lost для конверсии
         won_lost_result = await session.execute(
             select(
                 Deal.responsible_name,
@@ -243,46 +243,25 @@ class AnalyticsService:
             for row in won_lost_result.all()
         }
 
-        manager_names_with_closed = set(won_lost_map.keys()) - {ms.name for ms in manager_list}
-        for name in manager_names_with_closed:
-            manager_list.append(ManagerStats(name=name or "Неизвестно"))
-
         for ms in manager_list:
             won, lost = won_lost_map.get(ms.name, (0, 0))
             ms.won_count = won
             ms.lost_count = lost
 
-        manager_list: list[ManagerStats] = []
-        for row in result.all():
-            ms = ManagerStats(
-                name=row.responsible_name or "Неизвестно",
-                deal_count=row.deal_count,
-                total_amount=float(row.total_amount or 0),
-                won_count=int(row.won_count or 0),
-            )
-            manager_list.append(ms)
-
-        # Count problem deals per manager
-        if manager_list:
-            manager_names = {ms.name for ms in manager_list}
-            problem_ids_by_manager: dict[str, int] = {}
-
-            inactive_threshold = datetime.now(timezone.utc) - timedelta(days=self.inactive_threshold)
-            result = await session.execute(
-                select(Deal.responsible_name, func.count(Deal.id)).where(
-                    and_(
-                        Deal.is_won == False,
-                        Deal.is_lost == False,
-                        Deal.date_modify <= inactive_threshold,
-                    )
-                ).group_by(Deal.responsible_name)
-            )
-            for row in result.all():
-                if row[0]:
-                    problem_ids_by_manager[row[0]] = int(row[1])
-
-            for ms in manager_list:
-                ms.problem_count = problem_ids_by_manager.get(ms.name, 0)
+        # Проблемные сделки по менеджерам
+        inactive_threshold = datetime.now(timezone.utc) - timedelta(days=self.inactive_threshold)
+        prob_result = await session.execute(
+            select(Deal.responsible_name, func.count(Deal.id)).where(
+                and_(
+                    Deal.is_won == False,
+                    Deal.is_lost == False,
+                    Deal.date_modify <= inactive_threshold,
+                )
+            ).group_by(Deal.responsible_name)
+        )
+        problem_map = {row[0]: int(row[1]) for row in prob_result.all() if row[0]}
+        for ms in manager_list:
+            ms.problem_count = problem_map.get(ms.name, 0)
 
         analytics.manager_stats = manager_list
 

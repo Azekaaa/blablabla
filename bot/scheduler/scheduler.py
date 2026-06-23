@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 
 async def _send_scheduled_report(bot: Bot) -> None:
-    """Main scheduled task: sync data then send report."""
     session_factory = get_session_factory()
     report_log = ReportLog(
         report_type="scheduled",
@@ -25,16 +24,13 @@ async def _send_scheduled_report(bot: Bot) -> None:
     try:
         logger.info("Starting scheduled report job")
 
-        # Step 1: Sync data from Bitrix24
         sync_service = SyncService()
         sync_result = await sync_service.sync_deals()
         logger.info("Sync done: %s", sync_result)
 
-        # Step 2: Build analytics
         analytics_service = AnalyticsService()
         analytics = await analytics_service.get_analytics()
 
-        # Step 3: Build and send report
         from bot.keyboards import report_inline_keyboard
         report_text = build_full_report(analytics)
 
@@ -45,14 +41,12 @@ async def _send_scheduled_report(bot: Bot) -> None:
                 await bot.send_message(
                     chat_id=settings.chat_id,
                     text=chunk,
-                    parse_mode="Markdown",
                     reply_markup=kb,
                 )
         else:
             await bot.send_message(
                 chat_id=settings.chat_id,
                 text=report_text,
-                parse_mode="Markdown",
                 reply_markup=report_inline_keyboard(),
             )
 
@@ -64,12 +58,10 @@ async def _send_scheduled_report(bot: Bot) -> None:
         report_log.success = False
         report_log.error_message = str(e)[:1000]
 
-        # Notify about failure
         try:
             await bot.send_message(
                 chat_id=settings.chat_id,
-                text=f"❌ *Ошибка автоматического отчёта*\n\n`{str(e)[:500]}`",
-                parse_mode="Markdown",
+                text=f"Ошибка автоматического отчёта: {str(e)[:500]}",
             )
         except Exception as send_err:
             logger.error("Could not send error notification: %s", send_err)
@@ -81,45 +73,30 @@ async def _send_scheduled_report(bot: Bot) -> None:
 
 
 def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
-    """Create and configure the APScheduler instance."""
-    scheduler = AsyncIOScheduler(timezone="Asia/Almaty")
+    scheduler = AsyncIOScheduler(timezone="UTC")
 
-    # Morning report
+    # Morning report: 9:00 Астана = 04:00 UTC
     scheduler.add_job(
         _send_scheduled_report,
-        trigger=CronTrigger(
-            hour=settings.morning_hour,
-            minute=settings.morning_minute,
-            timezone="Asia/Almaty",
-        ),
+        trigger=CronTrigger(hour=4, minute=0, timezone="UTC"),
         args=[bot],
         id="morning_report",
-        name="Morning CRM Report",
-        replace_existing=True,
-        misfire_grace_time=300,  # 5 minutes grace period
-    )
-
-    # Evening report
-    scheduler.add_job(
-        _send_scheduled_report,
-        trigger=CronTrigger(
-            hour=settings.evening_hour,
-            minute=settings.evening_minute,
-            timezone="Asia/Almaty",
-        ),
-        args=[bot],
-        id="evening_report",
-        name="Evening CRM Report",
+        name="Morning CRM Report (09:00 Astana)",
         replace_existing=True,
         misfire_grace_time=300,
     )
 
-    logger.info(
-        "Scheduler configured (Asia/Almaty): morning=%02d:%02d, evening=%02d:%02d",
-        settings.morning_hour,
-        settings.morning_minute,
-        settings.evening_hour,
-        settings.evening_minute,
+    # Evening report: 17:00 Астана = 12:00 UTC
+    scheduler.add_job(
+        _send_scheduled_report,
+        trigger=CronTrigger(hour=12, minute=0, timezone="UTC"),
+        args=[bot],
+        id="evening_report",
+        name="Evening CRM Report (17:00 Astana)",
+        replace_existing=True,
+        misfire_grace_time=300,
     )
+
+    logger.info("Scheduler configured: 09:00 and 17:00 Astana time (04:00 and 12:00 UTC)")
 
     return scheduler

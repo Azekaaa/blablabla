@@ -78,7 +78,7 @@ def setup_scheduler(bot: Bot) -> AsyncIOScheduler:
     # Morning report: 9:00 Астана = 04:00 UTC
     scheduler.add_job(
         _send_scheduled_report,
-        trigger=CronTrigger(hour=4, minute=0, timezone="UTC"),
+        trigger=CronTrigger(hour=6, minute=0, timezone="UTC"),
         args=[bot],
         id="morning_report",
         name="Morning CRM Report (09:00 Astana)",

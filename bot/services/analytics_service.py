@@ -48,6 +48,11 @@ class CRMAnalytics:
     won_deals_today: int = 0
     lost_deals_today: int = 0
 
+    # Вчера
+    new_deals_yesterday: int = 0
+    won_deals_yesterday: int = 0
+    lost_deals_yesterday: int = 0
+
     # Проблемные сделки
     inactive_deals: list[dict] = field(default_factory=list)
     deals_without_tasks: list[dict] = field(default_factory=list)
@@ -143,6 +148,40 @@ class AnalyticsService:
             )
         )
         analytics.lost_deals_today = result.scalar() or 0
+        # Вчера
+        yesterday_start = today_start - timedelta(days=1)
+        
+        result = await session.execute(
+            select(func.count(Deal.id)).where(
+                and_(
+                    Deal.date_create >= yesterday_start,
+                    Deal.date_create < today_start,
+                )
+            )
+        )
+        analytics.new_deals_yesterday = result.scalar() or 0
+
+        result = await session.execute(
+            select(func.count(Deal.id)).where(
+                and_(
+                    Deal.date_modify >= yesterday_start,
+                    Deal.date_modify < today_start,
+                    Deal.is_won == True,
+                )
+            )
+        )
+        analytics.won_deals_yesterday = result.scalar() or 0
+
+        result = await session.execute(
+            select(func.count(Deal.id)).where(
+                and_(
+                    Deal.date_modify >= yesterday_start,
+                    Deal.date_modify < today_start,
+                    Deal.is_lost == True,
+                )
+            )
+        )
+        analytics.lost_deals_yesterday = result.scalar() or 0
 
     async def _fill_problem_deals(self, session: AsyncSession, analytics: CRMAnalytics) -> None:
         # Проблемная сделка: date_modify - date_create >= 1 день (не менялась с момента создания)

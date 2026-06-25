@@ -122,22 +122,34 @@ class BitrixClient:
         logger.info("Fetched %d active deals from Bitrix24", len(all_deals))
         return all_deals
 
-    async def get_closed_deals_today(self) -> list[dict[str, Any]]:
-        """Fetch deals closed today."""
-        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    async def get_closed_deals_month(self) -> list[dict[str, Any]]:
+        """Fetch deals closed in last 30 days."""
+        from datetime import timedelta
+        month_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
-        result = await self._call("crm.deal.list", {
-            "filter": {
-                "CLOSED": "Y",
-                ">=DATE_MODIFY": today_start.strftime("%Y-%m-%dT%H:%M:%S"),
-            },
-            "select": [
-                "ID", "TITLE", "STAGE_ID", "OPPORTUNITY", "CURRENCY_ID",
-                "ASSIGNED_BY_ID", "DATE_CREATE", "DATE_MODIFY", "CLOSED",
-            ],
-            "start": 0,
-        })
-        return result or []
+        all_closed: list[dict[str, Any]] = []
+        start = 0
+        while True:
+            result = await self._call("crm.deal.list", {
+                "filter": {
+                    "CLOSED": "Y",
+                    ">=DATE_MODIFY": month_ago.strftime("%Y-%m-%dT%H:%M:%S"),
+                },
+                "select": [
+                    "ID", "TITLE", "STAGE_ID", "OPPORTUNITY", "CURRENCY_ID",
+                    "ASSIGNED_BY_ID", "DATE_CREATE", "DATE_MODIFY", "CLOSED",
+                ],
+                "start": start,
+            })
+            if not result:
+                break
+            deals = result if isinstance(result, list) else []
+            all_closed.extend(deals)
+            if len(deals) < 50:
+                break
+            start += 50
+        logger.info("Fetched %d closed deals (last 30 days)", len(all_closed))
+        return all_closed
 
     async def get_new_deals_today(self) -> list[dict[str, Any]]:
         """Fetch deals created today."""

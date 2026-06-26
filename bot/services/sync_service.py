@@ -35,8 +35,9 @@ class SyncService:
 
             # Fetch all active deals
             raw_deals = await self.client.get_all_deals()
+            
             # Также фетчим закрытые сделки для конверсии
-            raw_closed = await self.client.get_closed_deals_today()
+            raw_closed = await self.client.get_closed_deals_month()
             raw_deals_all = raw_deals + raw_closed
 
             # Collect unique responsible IDs
